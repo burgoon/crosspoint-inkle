@@ -19,7 +19,12 @@
 #include "FirmwareFlasher.h"
 
 namespace {
+// Inkle fork: the release env overrides this so updates come from the fork.
+#ifdef CROSSPOINT_RELEASE_API_URL
+constexpr char latestReleaseUrl[] = CROSSPOINT_RELEASE_API_URL;
+#else
 constexpr char latestReleaseUrl[] = "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/latest";
+#endif
 }  // namespace
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {

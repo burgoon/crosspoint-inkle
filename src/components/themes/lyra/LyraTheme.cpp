@@ -13,6 +13,7 @@
 
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
+#include "apps_local/inkle/InkleIcon.h"  // Inkle fork
 #include "components/icons/blocks.h"
 #include "components/icons/book.h"
 #include "components/icons/bookmark.h"
@@ -60,6 +61,8 @@ const uint8_t* iconForName(UIIcon icon) {
       return BookmarkIcon;
     case UIIcon::Blocks:
       return BlocksIcon;
+    case UIIcon::Inkle:  // Inkle fork
+      return InkleIcon;
     default:
       return nullptr;
   }

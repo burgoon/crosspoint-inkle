@@ -147,7 +147,8 @@ enum UIIcon {
   Hotspot,
   Bookmark,
   Usb,
-  Blocks
+  Blocks,
+  Inkle  // Inkle fork: Home-menu row icon (LyraTheme::iconForName)
 };
 
 // Default theme implementation (Classic Theme)
