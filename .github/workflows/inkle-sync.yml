@@ -89,7 +89,7 @@ jobs:
         run: |
           tag="${{ steps.upstream.outputs.tag }}"
           body="Merging upstream tag \`$tag\` into \`inkle\` conflicted in:\n\n\`\`\`\n$(cat /tmp/conflicts.txt)\n\`\`\`\n\nResolve by hand: take upstream everywhere except \`src/apps_local/inkle/\`, the Inkle lines in \`HomeActivity.{h,cpp}\`, \`CoverGridHomeUi.{h,cpp}\`, \`ActivityManager.h\`, \`OtaUpdater.cpp\`, \`platformio.ini\`, and \`README.md\`. Then rerun this workflow."
-          gh issue create --title "upstream sync $tag: merge conflict" --body "$(printf "$body")" || true
+          gh issue create -R "${{ github.repository }}" --title "upstream sync $tag: merge conflict" --body "$(printf "$body")" || true
           exit 1
 
       - name: Set up Python
@@ -142,22 +142,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue create --title "upstream sync ${{ steps.upstream.outputs.tag }}: build or tests failed" \
+          gh issue create -R "${{ github.repository }}" --title "upstream sync ${{ steps.upstream.outputs.tag }}: build or tests failed" \
             --body "The merge was clean but the build or host tests failed. See the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
 
       - name: Push branch and tag
         if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           tag="${{ steps.build.outputs.release }}"
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists; not re-releasing."
+          if gh release view "$tag" -R "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $tag already exists; nothing to publish."
             echo "SKIP_RELEASE=1" >> "$GITHUB_ENV"
             exit 0
           fi
           git push origin inkle
-          git tag "$tag"
-          git push origin "$tag"
+          if ! git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
+            git tag "$tag"
+            git push origin "$tag"
+          fi
 
       - name: Publish release
         if: steps.build.outcome == 'success' && env.SKIP_RELEASE != '1'
@@ -168,4 +172,4 @@ jobs:
           tag="${{ steps.build.outputs.release }}"
           notes="CrossPoint ${{ steps.upstream.outputs.tag }} + Inkle. Xteink X4 Pro only.\n\nInstall: copy the .bin to the SD card root as firmware.bin and use Settings → System → update from SD, or flash over the cable at 0x10000 (see README).\n\nUpstream release notes: https://github.com/crosspoint-reader/crosspoint-reader/releases/tag/${{ steps.upstream.outputs.tag }}"
           gh release create "$tag" "crosspoint-${tag}-x4pro.bin" SHA256SUMS.txt \
-            --title "$tag" --notes "$(printf "$notes")"
+            -R "${{ github.repository }}" --target inkle --title "$tag" --notes "$(printf "$notes")"
