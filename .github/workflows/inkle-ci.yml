@@ -1,0 +1,70 @@
+# Inkle fork CI: host tests for the game rules and a release build for the X4 Pro.
+# Upstream's own workflows stay in the tree but are disabled in this repository's
+# Actions settings; this one is the fork's gate.
+name: Inkle CI
+
+on:
+  push:
+    branches: [inkle]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build and run InkleCore tests
+        run: |
+          cmake -S test/inkle_core -B build/inkle-test -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/inkle-test -j
+          ctest --test-dir build/inkle-test --output-on-failure
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: false
+
+      # Same toolchain as upstream CI: the pioarduino PlatformIO core, pinned.
+      - name: Install PlatformIO Core
+        run: |
+          uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
+          uv pip install --system -U "littlefs-python>=0.16.0" "fatfs-ng>=0.1.14" "pyyaml>=6.0.2" \
+            "rich-click>=1.8.6" "zopfli>=0.2.2" "intelhex>=2.3.0" "rich>=14.0.0" "urllib3<2" \
+            "cryptography>=45.0.3" "certifi>=2025.8.3" "ecdsa>=0.19.1" "bitstring>=4.3.1" \
+            "reedsolo>=1.5.3,<1.8" "esp-idf-size>=2.0.0" "esp-coredump>=1.14.0"
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-inkle-${{ runner.os }}-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
+          restore-keys: pio-inkle-${{ runner.os }}-
+
+      - name: Build x4pro-gh_release
+        run: pio run -e x4pro-gh_release
+
+      - name: Report size
+        run: ls -la .pio/build/x4pro-gh_release/firmware.bin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-x4pro
+          path: |
+            .pio/build/x4pro-gh_release/firmware.bin
+            .pio/build/x4pro-gh_release/bootloader.bin
+            .pio/build/x4pro-gh_release/partitions.bin

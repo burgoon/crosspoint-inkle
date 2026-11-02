@@ -1,0 +1,171 @@
+# Inkle fork: keep the `inkle` branch on CrossPoint's latest stable tag.
+#
+# Daily: fetch upstream tags, find the newest stable one (no "rc"), merge it into
+# `inkle` if it is not already there, build the X4 Pro firmware, push, tag
+# <upstream>-inkle.<rev> and publish a release with the firmware attached.
+# A conflict or build failure opens an issue and leaves the branch untouched.
+name: Inkle upstream sync
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: "Publish a release even if no new upstream tag (uses [inkle] rev)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: inkle-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: inkle
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find newest upstream stable tag
+        id: upstream
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/crosspoint-reader/crosspoint-reader.git
+          git fetch --quiet upstream --tags
+          tag=$(git tag -l | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor "$tag" HEAD; then
+            echo "merged=true" >> "$GITHUB_OUTPUT"
+            echo "Upstream $tag is already merged."
+          else
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream $tag is new."
+          fi
+
+      - name: Nothing to do
+        if: steps.upstream.outputs.merged == 'true' && inputs.force_release != true
+        run: echo "Up to date with upstream ${{ steps.upstream.outputs.tag }}."
+
+      - name: Merge upstream tag
+        if: steps.upstream.outputs.merged == 'false'
+        id: merge
+        run: |
+          set -euo pipefail
+          git config user.name "inkle-sync[bot]"
+          git config user.email "inkle-sync@users.noreply.github.com"
+          tag="${{ steps.upstream.outputs.tag }}"
+          if git merge --no-edit "$tag"; then
+            # Fork-owned README always wins; upstream's copy lives in docs/.
+            git show "$tag":README.md > docs/crosspoint-readme.md || true
+            if ! git diff --quiet -- docs/crosspoint-readme.md; then
+              git add docs/crosspoint-readme.md && git commit -q -m "docs: refresh upstream README copy for $tag"
+            fi
+            # New upstream base resets the fork revision to 1.
+            sed -i -E 's/^rev = [0-9]+$/rev = 1/' platformio.ini
+            if ! git diff --quiet -- platformio.ini; then
+              git add platformio.ini && git commit -q -m "chore: inkle rev 1 on $tag"
+            fi
+            git submodule update --init --recursive
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only --diff-filter=U > /tmp/conflicts.txt || true
+            git merge --abort || true
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open issue on conflict
+        if: steps.upstream.outputs.merged == 'false' && steps.merge.outputs.ok == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.upstream.outputs.tag }}"
+          body="Merging upstream tag \`$tag\` into \`inkle\` conflicted in:\n\n\`\`\`\n$(cat /tmp/conflicts.txt)\n\`\`\`\n\nResolve by hand: take upstream everywhere except \`src/apps_local/inkle/\`, the Inkle lines in \`HomeActivity.{h,cpp}\`, \`CoverGridHomeUi.{h,cpp}\`, \`ActivityManager.h\`, \`OtaUpdater.cpp\`, \`platformio.ini\`, and \`README.md\`. Then rerun this workflow."
+          gh issue create --title "upstream sync $tag: merge conflict" --body "$(printf "$body")" || true
+          exit 1
+
+      - name: Set up Python
+        if: steps.merge.outputs.ok == 'true' || inputs.force_release == true
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        if: steps.merge.outputs.ok == 'true' || inputs.force_release == true
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: false
+
+      - name: Install PlatformIO Core
+        if: steps.merge.outputs.ok == 'true' || inputs.force_release == true
+        run: |
+          uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
+          uv pip install --system -U "littlefs-python>=0.16.0" "fatfs-ng>=0.1.14" "pyyaml>=6.0.2" \
+            "rich-click>=1.8.6" "zopfli>=0.2.2" "intelhex>=2.3.0" "rich>=14.0.0" "urllib3<2" \
+            "cryptography>=45.0.3" "certifi>=2025.8.3" "ecdsa>=0.19.1" "bitstring>=4.3.1" \
+            "reedsolo>=1.5.3,<1.8" "esp-idf-size>=2.0.0" "esp-coredump>=1.14.0"
+
+      - name: Cache PlatformIO packages
+        if: steps.merge.outputs.ok == 'true' || inputs.force_release == true
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-inkle-${{ runner.os }}-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
+          restore-keys: pio-inkle-${{ runner.os }}-
+
+      - name: Build and test
+        if: steps.merge.outputs.ok == 'true' || inputs.force_release == true
+        id: build
+        run: |
+          set -euo pipefail
+          cmake -S test/inkle_core -B build/inkle-test -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/inkle-test -j
+          ctest --test-dir build/inkle-test --output-on-failure
+          pio run -e x4pro-gh_release
+          version=$(sed -nE 's/^version = ([0-9.]+)$/\1/p' platformio.ini | head -1)
+          rev=$(sed -nE 's/^rev = ([0-9]+)$/\1/p' platformio.ini | head -1)
+          echo "release=${version}-inkle.${rev}" >> "$GITHUB_OUTPUT"
+          cp .pio/build/x4pro-gh_release/firmware.bin "crosspoint-${version}-inkle.${rev}-x4pro.bin"
+          sha256sum "crosspoint-${version}-inkle.${rev}-x4pro.bin" > SHA256SUMS.txt
+
+      - name: Open issue on build failure
+        if: failure() && steps.merge.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create --title "upstream sync ${{ steps.upstream.outputs.tag }}: build or tests failed" \
+            --body "The merge was clean but the build or host tests failed. See the workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
+
+      - name: Push branch and tag
+        if: steps.build.outcome == 'success'
+        run: |
+          set -euo pipefail
+          tag="${{ steps.build.outputs.release }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists; not re-releasing."
+            echo "SKIP_RELEASE=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git push origin inkle
+          git tag "$tag"
+          git push origin "$tag"
+
+      - name: Publish release
+        if: steps.build.outcome == 'success' && env.SKIP_RELEASE != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.build.outputs.release }}"
+          notes="CrossPoint ${{ steps.upstream.outputs.tag }} + Inkle. Xteink X4 Pro only.\n\nInstall: copy the .bin to the SD card root as firmware.bin and use Settings → System → update from SD, or flash over the cable at 0x10000 (see README).\n\nUpstream release notes: https://github.com/crosspoint-reader/crosspoint-reader/releases/tag/${{ steps.upstream.outputs.tag }}"
+          gh release create "$tag" "crosspoint-${tag}-x4pro.bin" SHA256SUMS.txt \
+            --title "$tag" --notes "$(printf "$notes")"
