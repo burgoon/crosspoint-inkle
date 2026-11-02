@@ -94,6 +94,20 @@ int32_t dayIndexFromCivil(int year, int month, int day) {
   return daysSinceEpoch - FIRST_PUZZLE_DAY;
 }
 
+void civilFromDayIndex(const int32_t dayIndex, int& year, int& month, int& day) {
+  // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+  constexpr int32_t FIRST_PUZZLE_DAY = 18797;
+  const int32_t z = dayIndex + FIRST_PUZZLE_DAY + 719468;
+  const int32_t era = (z >= 0 ? z : z - 146096) / 146097;
+  const int32_t doe = z - era * 146097;
+  const int32_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+  const int32_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+  const int32_t mp = (5 * doy + 2) / 153;
+  day = doy - (153 * mp + 2) / 5 + 1;
+  month = mp < 10 ? mp + 3 : mp - 9;
+  year = yoe + era * 400 + (month <= 2);
+}
+
 void answerForDay(int32_t dayIndex, Word& out) {
   // A multiplicative stride that is coprime with the list length visits every
   // answer exactly once before repeating, in a scrambled order.

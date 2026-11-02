@@ -34,6 +34,8 @@ bool isAnswer(const char* word);
 
 // Days since 2021-06-19 (local date), the first puzzle. Negative before that.
 int32_t dayIndexFromCivil(int year, int month, int day);
+// Inverse of dayIndexFromCivil.
+void civilFromDayIndex(int32_t dayIndex, int& year, int& month, int& day);
 
 // The puzzle for a day index. Walks the answer list in a fixed shuffled order
 // so consecutive days are not alphabetical neighbours.

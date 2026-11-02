@@ -9,6 +9,9 @@ fonts, sync and the reader itself.
   place (filled), in the word but elsewhere (thick border), or not in the word (shaded).
 - One puzzle per calendar day, chosen from a built-in list; streaks and totals are kept on
   the SD card. Works fully offline.
+- Past puzzles, too: once today's is done, tap "Past puzzles" (or long-press Confirm) to pick
+  any earlier day and play it. Those count in their own "played / won" pair and never touch
+  the daily streak.
 - Reached from the Home screen (an "Inkle" row, or the sixth tab on the Cover Grid theme).
   Touch the on-screen keyboard, or use the buttons: Left/Right and Up/Down move across the
   keys, Confirm presses one, Back leaves the game. Progress is saved after every guess.

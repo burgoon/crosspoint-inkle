@@ -7,8 +7,9 @@
 #include "activities/Activity.h"
 #include "components/OptionPopup.h"
 
-// One daily five-letter word puzzle. The board and keyboard are hand-drawn
-// through GfxRenderer; chrome (header, hints, popup) comes from the theme.
+// One daily five-letter word puzzle, plus a picker for past days. The board
+// and keyboard are hand-drawn through GfxRenderer; chrome (header, hints,
+// popup) comes from the theme.
 class InkleActivity final : public Activity {
  public:
   InkleActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
@@ -23,6 +24,8 @@ class InkleActivity final : public Activity {
   static constexpr int KEY_ENTER = 19;
   static constexpr int KEY_DEL = 27;
 
+  enum class Screen : uint8_t { Game, Picker };
+
   struct Box {
     int x = 0, y = 0, w = 0, h = 0;
     bool contains(const int px, const int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
@@ -35,24 +38,41 @@ class InkleActivity final : public Activity {
   char current[6] = {0};
   int currentLen = 0;
   int cursorKey = 0;
-  bool practice = false;
+  int32_t today = -1;  // -1 when the clock is not trustworthy (practice mode)
+  bool archiveMode = false;
+  Screen screen = Screen::Game;
+  int32_t pickDay = 0;
   bool fullRefreshNext = true;
-  bool resultShown = false;
   std::string status;
-  char subtitle[32] = {0};
+  char subtitle[40] = {0};
   OptionPopup popup;
 
   Box tiles[inkle::MAX_GUESSES][5];
   Box keys[KEY_COUNT];
-  int statusY = 0;
+  Box statusBox;
+  Box pickOlder, pickNewer, pickPlay;
+  int pickTextY = 0;
+
+  inkle::Board& board() { return archiveMode ? state.archive : state.daily; }
+  const inkle::Board& board() const { return archiveMode ? state.archive : state.daily; }
 
   void computeLayout();
-  void rebuildBoard();
+  void loadBoard();
+  void setSubtitle();
   void pressKey(int key);
   void submitGuess();
   void showResult();
+  void openPicker();
+  void playPicked();
+  void leaveArchive();
+  void stepPick(int32_t delta);
+  void loopGame();
+  void loopPicker();
+  void renderGame();
+  void renderPicker();
   static char keyLetter(int key);
   static int keyRow(int key);
   void drawTile(const Box& box, char letter, inkle::Tile tile, bool pending) const;
   void drawKey(int key, bool highlighted) const;
+  void drawButton(const Box& box, const char* label, bool highlighted) const;
 };

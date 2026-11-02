@@ -18,7 +18,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 set(INKLE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../src/apps_local/inkle)
-add_executable(InkleCoreTest InkleCoreTest.cpp ${INKLE_DIR}/InkleCore.cpp ${INKLE_DIR}/InkleWords.cpp)
+add_executable(InkleCoreTest InkleCoreTest.cpp ${INKLE_DIR}/InkleCore.cpp ${INKLE_DIR}/InkleWords.cpp ${INKLE_DIR}/InkleState.cpp)
 target_include_directories(InkleCoreTest PRIVATE ${INKLE_DIR})
 target_link_libraries(InkleCoreTest PRIVATE GTest::gtest_main)
 
