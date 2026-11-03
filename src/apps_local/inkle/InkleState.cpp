@@ -34,6 +34,7 @@ void State::startDaily(const int32_t day) {
 }
 
 void State::recordDaily() {
+  if (playedDays.get(daily.dayIndex)) return;  // already counted (clock moved back over a day)
   ++played;
   playedDays.set(daily.dayIndex);
   if (daily.solved) {
@@ -50,6 +51,7 @@ void State::recordDaily() {
 void State::startArchive(const int32_t day) { archive.start(day); }
 
 void State::recordArchive() {
+  if (playedDays.get(archive.dayIndex)) return;  // replaying a counted day changes nothing
   ++archivePlayed;
   playedDays.set(archive.dayIndex);
   if (archive.solved) {

@@ -159,6 +159,12 @@ void InkleActivity::onEnter() {
       state.startDaily(puzzle);
     }
   }
+  // Already recorded for this day (a timezone change can revisit a day): show
+  // it as done rather than counting it twice.
+  if (today >= 0 && !state.daily.finished() && state.playedDays.get(puzzle)) {
+    state.daily.solved = state.solvedDays.get(puzzle);
+    if (!state.daily.solved) state.daily.guessCount = inkle::MAX_GUESSES;
+  }
   archiveMode = false;
   screen = Screen::Game;
   loadBoard();
@@ -233,7 +239,9 @@ void InkleActivity::showResult() {
   const inkle::Board& b = board();
   char upper[6];
   for (int i = 0; i < 6; ++i) upper[i] = answer.text[i] >= 'a' ? answer.text[i] - 32 : answer.text[i];
-  if (b.solved) {
+  if (b.solved && b.guessCount == 0) {
+    snprintf(title, sizeof(title), "Already solved (%s)", upper);
+  } else if (b.solved) {
     snprintf(title, sizeof(title), "Solved in %d/%d", b.guessCount, inkle::MAX_GUESSES);
   } else {
     snprintf(title, sizeof(title), "The word was %s", upper);
