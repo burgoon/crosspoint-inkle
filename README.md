@@ -1,5 +1,11 @@
 # CrossPoint + Inkle
 
+<p align="center">
+  <img src="docs/images/inkle-home.png" width="230" alt="Home screen with an Inkle row">
+  <img src="docs/images/inkle-solved.png" width="230" alt="A solved puzzle with the stats popup">
+  <img src="docs/images/inkle-past-puzzles.png" width="230" alt="The past puzzles picker">
+</p>
+
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) firmware for the
 **Xteink X4 Pro**, plus one thing: **Inkle**, a daily five-letter word game you play on the
 e-ink screen. Everything else is stock CrossPoint, including plugins, the web file manager,
