@@ -173,3 +173,19 @@ TEST(State, ArchiveKeepsDailyStatsUntouched) {
   EXPECT_EQ(s.archive.guessCount, 0);
   EXPECT_FALSE(s.archive.finished());
 }
+
+TEST(State, ADayIsNeverCountedTwice) {
+  State s;
+  s.startDaily(300);
+  s.daily.solved = true;
+  s.recordDaily();
+  s.startDaily(300);
+  s.daily.solved = true;
+  s.recordDaily();
+  EXPECT_EQ(s.played, 1);
+  EXPECT_EQ(s.won, 1);
+  s.startArchive(300);
+  s.archive.solved = true;
+  s.recordArchive();
+  EXPECT_EQ(s.archivePlayed, 0);
+}
