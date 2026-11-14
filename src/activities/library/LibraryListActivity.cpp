@@ -16,9 +16,13 @@
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
+#include "OpdsServerStore.h"  // Articles fork
 #include "RecentBooksStore.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
+#include "apps_local/articles/ArticleStrings.h"    // Articles fork
+#include "apps_local/articles/ArticlesActivity.h"  // Articles fork
+#include "apps_local/articles/ArticlesNav.h"       // Articles fork
 #include "components/UIScale.h"
 #include "components/UITheme.h"
 #include "components/icons/headerIcons.h"
@@ -44,6 +48,9 @@ constexpr int RECENT_TAB = 0;
 constexpr int TITLE_TAB = 1;
 constexpr int AUTHOR_TAB = 2;
 constexpr int TAB_SLOTS = AUTHOR_TAB + 1;
+// Articles fork: the shelf redraws this strip; fail the build if the tabs change.
+static_assert(TAB_SLOTS == ArticlesActivity::LIBRARY_TABS, "update ArticlesActivity's copy of the Library tabs");
+static_assert(RECENT_TAB == 0 && TITLE_TAB == 1 && AUTHOR_TAB == 2, "update ArticlesActivity::tabLabel");
 
 constexpr bool isDescending(const library::SortOrder order) {
   return order == library::SortOrder::RecentDesc || order == library::SortOrder::TitleDesc ||
@@ -73,8 +80,13 @@ const char* tabLabelFor(const int tab) {
 
 }  // namespace
 
-LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-    : UiTabListActivity("Library", renderer, mappedInput, true) {
+LibraryListActivity::LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, const int initialTab)
+    : UiTabListActivity("Library", renderer, mappedInput, true), hasArticlesTab(OPDS_STORE.hasArticleFeeds()) {
+  // Articles fork: the article shelf hands back to a specific sort tab.
+  if (initialTab > RECENT_TAB && initialTab < TAB_SLOTS) {
+    activeTabIndex = initialTab;
+    sortOrder = orderForTab(initialTab, descendingTabs);
+  }
   // Three short tab labels: a full-slot pill would stretch across a third of
   // the screen, so cap it at the label plus padding (slots stay put).
   tabPillMaxPad = 16;
@@ -466,7 +478,8 @@ void LibraryListActivity::openSearch() {
 }
 
 void LibraryListActivity::stepTab(const int direction) {
-  const int next = (activeTab() + (direction > 0 ? 1 : TAB_SLOTS - 1)) % TAB_SLOTS;
+  const int slots = tabCount();  // Articles fork: includes the Articles tab when present
+  const int next = (activeTab() + (direction > 0 ? 1 : slots - 1)) % slots;
   selectTab(next, false);
 }
 
@@ -479,6 +492,12 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
 #if FREEINK_CAP_TOUCH
   closeSwipeDelete();
 #endif
+  // Articles fork: the fourth tab is its own screen (apps_local/articles).
+  if (hasArticlesTab && index == ArticlesActivity::ARTICLES_TAB) {
+    app.clearTapFlash();
+    articles::openShelf(renderer, mappedInput);
+    return;
+  }
   if (index < 0 || index >= TAB_SLOTS) return;
   if (toggleIfActive && index == activeTab()) descendingTabs ^= static_cast<uint8_t>(1u << index);
   sortOrder = orderForTab(index, descendingTabs);
@@ -497,11 +516,14 @@ void LibraryListActivity::selectTab(const int index, const bool toggleIfActive) 
 
 void LibraryListActivity::toggleSortDirection() { selectTab(activeTab(), true); }
 
-int LibraryListActivity::tabCount() const { return TAB_SLOTS; }
+int LibraryListActivity::tabCount() const { return TAB_SLOTS + (hasArticlesTab ? 1 : 0); }  // Articles fork
 
 int LibraryListActivity::activeTab() const { return activeTabIndex; }
 
-const char* LibraryListActivity::tabLabel(const int index) const { return tabLabelFor(index); }
+const char* LibraryListActivity::tabLabel(const int index) const {
+  if (index == ArticlesActivity::ARTICLES_TAB) return articles::TEXT_ARTICLES;  // Articles fork
+  return tabLabelFor(index);
+}
 
 fui::TabIndicator LibraryListActivity::tabIndicator(const int index) const {
   if (index != activeTab()) return fui::TabIndicator::None;

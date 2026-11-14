@@ -18,6 +18,7 @@
 #include "RecentBooksStore.h"
 #include "SdCardFontSystem.h"
 #include "XtcReaderActivity.h"
+#include "apps_local/articles/ArticlesNav.h"  // Articles fork
 #include "util/PluginEvents.h"
 
 ReaderActivity::ReaderActivity(const char* name, GfxRenderer& renderer, MappedInputManager& mappedInput,
@@ -188,6 +189,9 @@ bool ReaderActivity::handleEndOfBookMenu(const bool suppressConfirmRelease) {
       return true;
     case EndOfBookOptions::Action::GoHome:
       onGoHome();
+      return true;
+    case EndOfBookOptions::Action::GoArticles:  // Articles fork
+      articles::openShelf(renderer, mappedInput);
       return true;
     case EndOfBookOptions::Action::LastPage:
       onReturnFromEndOfBook();

@@ -14,6 +14,7 @@ void OpdsServerStore::toJson(JsonDocument& doc) const {
     obj["url"] = server.url;
     obj["username"] = server.username;
     obj["password_obf"] = obfuscation::obfuscateToBase64(server.password);
+    if (server.articleFeed) obj["article_feed"] = true;  // Articles fork
     JsonArray headers = obj["headers"].to<JsonArray>();
     for (const auto& header : server.customHeaders) {
       JsonObject headerObj = headers.add<JsonObject>();
@@ -38,6 +39,7 @@ bool OpdsServerStore::fromJson(JsonVariantConst doc) {
     server.url = obj["url"] | "";
     server.username = obj["username"] | "";
     server.password = extractPassword(obj, needsResave);
+    server.articleFeed = obj["article_feed"] | false;  // Articles fork
 
     size_t headerIndex = 0;
     for (JsonObjectConst headerObj : obj["headers"].as<JsonArrayConst>()) {
@@ -89,6 +91,11 @@ bool OpdsServerStore::removeServer(size_t index) {
   LOG_DBG("OPS", "Removed server: %s", servers[index].name.c_str());
   servers.erase(servers.begin() + static_cast<ptrdiff_t>(index));
   return saveToFile();
+}
+
+// Articles fork
+bool OpdsServerStore::hasArticleFeeds() const {
+  return std::any_of(servers.begin(), servers.end(), [](const OpdsServer& server) { return server.articleFeed; });
 }
 
 const OpdsServer* OpdsServerStore::getServer(size_t index) const {

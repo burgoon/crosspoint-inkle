@@ -8,14 +8,18 @@
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
 #include "activities/util/KeyboardEntryActivity.h"
+#include "apps_local/articles/ArticleStrings.h"  // Articles fork
 #include "components/UITheme.h"
 
 namespace fui = freeink::ui;
 
 namespace {
 // Editable fields: Name, URL, Username, Password, Custom Header 1, Custom
-// Header 2. Existing servers also show a Delete option (BASE_ITEMS + 1).
-constexpr int BASE_ITEMS = 6;
+// Header 2, Article feed. Existing servers also show a Delete option
+// (BASE_ITEMS + 1).
+constexpr int TEXT_FIELDS = 6;                   // Articles fork: was BASE_ITEMS
+constexpr int ARTICLE_FEED_INDEX = TEXT_FIELDS;  // Articles fork: checkbox row
+constexpr int BASE_ITEMS = TEXT_FIELDS + 1;      // Articles fork: + the checkbox row
 constexpr int CUSTOM_HEADER_1_INDEX = 4;
 constexpr int CUSTOM_HEADER_2_INDEX = 5;
 }  // namespace
@@ -25,13 +29,16 @@ OpdsSettingsActivity::OpdsSettingsActivity(GfxRenderer& renderer, MappedInputMan
     : UiListActivity("OpdsSettings", renderer, mappedInput), serverIndex(serverIndex) {
   // Labels never change (unlike the values, which track editServer's fields
   // live), so they're set once here rather than every buildScreen() call.
-  static constexpr StrId fieldNames[BASE_ITEMS] = {StrId::STR_SERVER_NAME,     StrId::STR_OPDS_SERVER_URL,
-                                                   StrId::STR_USERNAME,        StrId::STR_PASSWORD,
-                                                   StrId::STR_CUSTOM_HEADER_1, StrId::STR_CUSTOM_HEADER_2};
-  for (int i = 0; i < BASE_ITEMS; i++) {
+  // Articles fork: sized by TEXT_FIELDS (was BASE_ITEMS).
+  static constexpr StrId fieldNames[TEXT_FIELDS] = {StrId::STR_SERVER_NAME,     StrId::STR_OPDS_SERVER_URL,
+                                                    StrId::STR_USERNAME,        StrId::STR_PASSWORD,
+                                                    StrId::STR_CUSTOM_HEADER_1, StrId::STR_CUSTOM_HEADER_2};
+  for (int i = 0; i < TEXT_FIELDS; i++) {  // Articles fork: TEXT_FIELDS
     fieldRowItems[i].label = I18N.get(fieldNames[i]);
     fieldRowItems[i].actionValue = static_cast<int16_t>(i);
   }
+  fieldRowItems[ARTICLE_FEED_INDEX].label = articles::TEXT_ARTICLE_FEED;  // Articles fork
+  fieldRowItems[ARTICLE_FEED_INDEX].actionValue = static_cast<int16_t>(ARTICLE_FEED_INDEX);
   fieldRowItems[BASE_ITEMS].label = tr(STR_DELETE_SERVER);
   fieldRowItems[BASE_ITEMS].actionValue = static_cast<int16_t>(BASE_ITEMS);
 }
@@ -170,6 +177,11 @@ void OpdsSettingsActivity::handleSelection() {
     startActivityForResult(
         std::make_unique<KeyboardEntryActivity>(renderer, mappedInput, I18N.get(label), prefill, 160, InputType::Text),
         handler);
+  } else if (nav.selected == ARTICLE_FEED_INDEX) {
+    // Articles fork: toggles in place, saved like every other field.
+    editServer.articleFeed = !editServer.articleFeed;
+    saveServer();
+    requestUpdate();
   } else if (nav.selected == BASE_ITEMS && !isNewServer) {
     // Delete flow is only available for existing servers.
     if (!OPDS_STORE.removeServer(static_cast<size_t>(serverIndex))) {
@@ -211,6 +223,8 @@ void OpdsSettingsActivity::buildScreen(UiScreen& screen) {
     fieldRowItems[CUSTOM_HEADER_1_INDEX + i].value =
         headerDisplayBuf[i].empty() ? tr(STR_NOT_SET) : headerDisplayBuf[i].c_str();
   }
+
+  GUI.setCheckboxRow(fieldRowItems[ARTICLE_FEED_INDEX], editServer.articleFeed);  // Articles fork
 
   fui::ListProps props;
   props.items = fieldRowItems;

@@ -31,7 +31,8 @@
 // indexed book so an allocation failure remains recoverable on the C3.
 class LibraryListActivity final : public UiTabListActivity {
  public:
-  LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
+  // Articles fork: initialTab lets the article shelf return to a chosen sort tab.
+  LibraryListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, int initialTab = 0);
 
   void onEnter() override;
   void onExit() override;
@@ -142,6 +143,8 @@ class LibraryListActivity final : public UiTabListActivity {
   void refreshOverlap();
 
   library::LibraryIndexFile index;
+  // Articles fork: a fourth "Articles" tab, fixed for this screen's lifetime.
+  const bool hasArticlesTab;
   int activeTabIndex = 0;
   library::SortOrder sortOrder = library::SortOrder::RecentDesc;
   // One bit per tab; Recent starts descending (newest first).
