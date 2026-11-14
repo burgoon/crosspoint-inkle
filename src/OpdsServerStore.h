@@ -21,6 +21,10 @@ struct OpdsServer {
   static constexpr size_t MAX_CUSTOM_HEADERS = 2;
   std::array<HttpHeader, MAX_CUSTOM_HEADERS> customHeaders;
 
+  // Articles fork: this feed holds read-later articles, not books. The article
+  // shelf syncs every entry of such a feed; book feeds stay browse-and-pick.
+  bool articleFeed = false;
+
   // Headers with a non-empty name, ready to hand to HttpDownloader.
   std::vector<HttpDownloader::Header> activeCustomHeaders() const;
 };
@@ -53,6 +57,7 @@ class OpdsServerStore : public PersistableStore<OpdsServerStore> {
   const OpdsServer* getServer(size_t index) const;
   size_t getCount() const { return servers.size(); }
   bool hasServers() const { return !servers.empty(); }
+  bool hasArticleFeeds() const;  // Articles fork
 };
 
 #define OPDS_STORE OpdsServerStore::getInstance()

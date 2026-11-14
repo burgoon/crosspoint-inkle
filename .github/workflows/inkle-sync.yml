@@ -88,7 +88,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${{ steps.upstream.outputs.tag }}"
-          body="Merging upstream tag \`$tag\` into \`inkle\` conflicted in:\n\n\`\`\`\n$(cat /tmp/conflicts.txt)\n\`\`\`\n\nResolve by hand: take upstream everywhere except \`src/apps_local/inkle/\`, the Inkle lines in \`HomeActivity.{h,cpp}\`, \`CoverGridHomeUi.{h,cpp}\`, \`ActivityManager.h\`, \`OtaUpdater.cpp\`, \`platformio.ini\`, and \`README.md\`. Then rerun this workflow."
+          body="Merging upstream tag \`$tag\` into \`inkle\` conflicted in:\n\n\`\`\`\n$(cat /tmp/conflicts.txt)\n\`\`\`\n\nResolve by hand: take upstream everywhere except \`src/apps_local/\`, every line marked \`Inkle fork\` or \`Articles fork\` (search for those words), the fork lines in \`OtaUpdater.cpp\` and \`platformio.ini\`, and \`README.md\`. Then rerun this workflow."
           gh issue create -R "${{ github.repository }}" --title "upstream sync $tag: merge conflict" --body "$(printf "$body")" || true
           exit 1
 
@@ -130,6 +130,9 @@ jobs:
           cmake -S test/inkle_core -B build/inkle-test -DCMAKE_BUILD_TYPE=Release
           cmake --build build/inkle-test -j
           ctest --test-dir build/inkle-test --output-on-failure
+          cmake -S test/articles_core -B build/articles-test -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/articles-test -j
+          ctest --test-dir build/articles-test --output-on-failure
           pio run -e x4pro-gh_release
           version=$(sed -nE 's/^version = ([0-9.]+)$/\1/p' platformio.ini | head -1)
           rev=$(sed -nE 's/^rev = ([0-9]+)$/\1/p' platformio.ini | head -1)

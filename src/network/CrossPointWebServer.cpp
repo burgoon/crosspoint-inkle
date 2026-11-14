@@ -1625,6 +1625,7 @@ void CrossPointWebServer::handleGetOpdsServers() const {
     doc["username"] = servers[i].username;
     // Never expose passwords over the API — only indicate whether one is set
     doc["hasPassword"] = !servers[i].password.empty();
+    doc["articleFeed"] = servers[i].articleFeed;  // Articles fork
     // Header values may hold secrets (e.g. an auth proxy token) — same treatment as passwords
     JsonArray headersArr = doc["headers"].to<JsonArray>();
     for (const auto& header : servers[i].customHeaders) {
@@ -1675,6 +1676,9 @@ void CrossPointWebServer::handlePostOpdsServer() {
   // one entry per slot. Each entry's "value" key is optional the same way "password" is above
   // — absent means preserve that slot's existing value on update.
   bool hasHeadersField = doc["headers"].is<JsonArrayConst>();
+  // Articles fork: optional like the fields above; absent keeps the stored flag.
+  const bool hasArticleFeedField = doc["articleFeed"].is<bool>();
+  opdsServer.articleFeed = doc["articleFeed"] | false;
   std::array<std::string, OpdsServer::MAX_CUSTOM_HEADERS> headerNames;
   std::array<bool, OpdsServer::MAX_CUSTOM_HEADERS> headerValueProvided{};
   std::array<std::string, OpdsServer::MAX_CUSTOM_HEADERS> headerValues;
@@ -1699,6 +1703,7 @@ void CrossPointWebServer::handlePostOpdsServer() {
     // Preserve existing password if not explicitly provided
     if (!hasPasswordField && existing) password = existing->password;
     opdsServer.password = password;
+    if (!hasArticleFeedField && existing) opdsServer.articleFeed = existing->articleFeed;  // Articles fork
 
     for (size_t i = 0; i < OpdsServer::MAX_CUSTOM_HEADERS; i++) {
       if (hasHeadersField) {

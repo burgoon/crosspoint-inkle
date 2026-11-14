@@ -501,6 +501,11 @@
         '<span class="setting-control"><input type="password" id="opds-pass-' + id + '" placeholder="' + (srv.hasPassword ? '(unchanged)' : '') + '"></span>' +
       '</div>' +
       renderOpdsHeaderRows(srv, id) +
+      // Articles fork: article feeds are synced by the Articles shelf.
+      '<div class="setting-row">' +
+        '<span class="setting-name">Article feed</span>' +
+        '<span class="setting-control"><input type="checkbox" id="opds-article-' + id + '"' + (srv.articleFeed ? ' checked' : '') + ' onchange="enableItemSave(this.closest(\'.item-box\'))"></span>' +
+      '</div>' +
       '<div class="item-actions">' +
         '<button class="btn-small btn-save-server" onclick="saveOpdsServer(' + idx + ')" disabled>Save</button>' +
         (isNew ? '' : '<button class="btn-small btn-delete" onclick="deleteOpdsServer(' + idx + ')">Delete</button>') +
@@ -570,6 +575,7 @@
       headers.push(header);
     }
     data.headers = headers;
+    data.articleFeed = document.getElementById('opds-article-' + id).checked;  // Articles fork
 
     if (idx >= 0) data.index = idx;
 

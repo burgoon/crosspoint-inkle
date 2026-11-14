@@ -90,7 +90,7 @@ class ActivityManager {
   // openSection jumps straight into one group (End = the section list).
   void goToSettings(SettingsSection openSection = SettingsSection::End);
   void goToFileBrowser(std::string path = {});
-  void goToLibrary();
+  void goToLibrary(int initialTab = 0);  // Articles fork: the article shelf returns to a chosen tab
   void goToBrowser();
   void goToPlugins(bool showOpds);
   void goToReader(std::string path, bool allowFastInitialRefresh = false);
