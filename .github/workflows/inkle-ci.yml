@@ -1,4 +1,4 @@
-# Inkle fork CI: host tests for the game rules and a release build for the X4 Pro.
+# Inkle fork CI: host tests for the fork's own code and a release build for the X4 Pro.
 # Upstream's own workflows stay in the tree but are disabled in this repository's
 # Actions settings; this one is the fork's gate.
 name: Inkle CI
@@ -22,6 +22,11 @@ jobs:
           cmake -S test/inkle_core -B build/inkle-test -DCMAKE_BUILD_TYPE=Release
           cmake --build build/inkle-test -j
           ctest --test-dir build/inkle-test --output-on-failure
+      - name: Build and run ArticlesCore tests
+        run: |
+          cmake -S test/articles_core -B build/articles-test -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/articles-test -j
+          ctest --test-dir build/articles-test --output-on-failure
 
   firmware:
     runs-on: ubuntu-latest

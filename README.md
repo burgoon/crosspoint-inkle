@@ -7,9 +7,12 @@
 </p>
 
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) firmware for the
-**Xteink X4 Pro**, plus one thing: **Inkle**, a daily five-letter word game you play on the
-e-ink screen. Everything else is stock CrossPoint, including plugins, the web file manager,
-fonts, sync and the reader itself.
+**Xteink X4 Pro**, plus two things: **Inkle**, a daily five-letter word game you play on the
+e-ink screen, and an **Articles** shelf that turns an OPDS feed into a read-later queue.
+Everything else is stock CrossPoint, including plugins, the web file manager, fonts, sync and
+the reader itself.
+
+## Inkle
 
 - Six guesses to find the day's five-letter word. Tiles show letters that are in the right
   place (filled), in the word but elsewhere (thick border), or not in the word (shaded).
@@ -21,6 +24,38 @@ fonts, sync and the reader itself.
 - Reached from the Home screen (an "Inkle" row, or the sixth tab on the Cover Grid theme).
   Touch the on-screen keyboard, or use the buttons: Left/Right and Up/Down move across the
   keys, Confirm presses one, Back leaves the game. Progress is saved after every guess.
+
+## Articles
+
+A read-later queue for web articles. You mark an OPDS server as an **article feed**; the
+reader then downloads every new entry of that feed in one step and lists the articles on
+their own shelf, newest first.
+
+- **Set it up:** Settings → Connectivity → OPDS Servers → pick or add a server → turn on
+  **Article feed**. The same switch is on the web settings page. The server URL must be the
+  feed that lists the EPUBs themselves, not a catalog menu that links to other feeds.
+- **Find it:** once a feed is marked, the Library gets a fourth tab, **Articles**. Without
+  an article feed the tab is not shown and nothing else changes.
+- **Sync:** open the Articles tab and choose **Sync articles** (or tap the refresh icon).
+  The reader joins Wi-Fi, downloads what is new into `/Articles` on the SD card, and returns
+  to the shelf. Wi-Fi is only used when you ask for a sync.
+- **Read and clear:** select an article to open it. The end-of-book screen has an
+  **Articles** row that goes back to the shelf. To delete an article, long-press it (or
+  swipe it on the touch screen); a deleted article is not downloaded again while it is in
+  the download history.
+- **Order:** tap the Articles tab again, or long-press Confirm on it, to switch between
+  newest first and oldest first.
+- **Limits:** only the first page of a feed is read (about 60 entries). Entries without a
+  direct EPUB download, such as purchases and protected books, are skipped. The reader
+  remembers its last 300 downloads. Text on this shelf is English only for now.
+
+Servers that are not marked stay ordinary book catalogs in the OPDS browser, as before.
+
+The feed can come from anything that speaks OPDS. One small self-hosted option that turns
+pages shared from a phone into such a feed is described in
+[docs/articles.md](docs/articles.md).
+
+## Updates
 
 This fork tracks CrossPoint's **stable releases** automatically: when upstream tags a new
 version, a workflow merges it, builds, and publishes a matching release here. See
@@ -58,7 +93,9 @@ releases, or repeat either method above.
 
 Flash the matching `crosspoint-<version>-x4pro.bin` from
 [CrossPoint's releases](https://github.com/crosspoint-reader/crosspoint-reader/releases) the
-same way. The game's save file (`/.crosspoint/inkle.txt`) can be deleted or left alone.
+same way. The game's save file (`/.crosspoint/inkle.txt`) and the article download history
+(`/.crosspoint/articles.txt`) can be deleted or left alone. Stock CrossPoint ignores the
+`article_feed` flag in `/.crosspoint/opds.json`.
 
 ## How it stays current
 
@@ -66,6 +103,13 @@ The `inkle` branch is CrossPoint's latest stable tag plus a small, fixed set of 
 
 - `src/apps_local/inkle/` — the game.
 - A Home-menu row and a Cover Grid tab that open it (`HomeActivity`, `CoverGridHomeUi`).
+- `src/apps_local/articles/` — the article shelf and its sync screen.
+- Small hooks for the shelf, each marked with an `Articles fork` comment:
+  - an `articleFeed` flag on OPDS servers (`OpdsServerStore`, `OpdsSettingsActivity`,
+    `CrossPointWebServer`, `SettingsPage.html`);
+  - the fourth Library tab (`LibraryListActivity`, and `goToLibrary` in `ActivityManager`);
+  - the end-of-book row (`EndOfBookOptions`, `ReaderActivity`);
+  - the restart that lands on the shelf after a sync (`main.cpp`, `SilentRestart.h`).
 - The version string and update URL in `platformio.ini`, and a one-line override in the
   update checker so it reads this fork's releases.
 
@@ -83,10 +127,12 @@ python3.13 -m venv .venv
 .venv/bin/pio run -e x4pro-gh_release
 ```
 
-The image is at `.pio/build/x4pro-gh_release/firmware.bin`. Host tests for the game rules:
+The image is at `.pio/build/x4pro-gh_release/firmware.bin`. Host tests for the game rules
+and for the article shelf's bookkeeping:
 
 ```
 cmake -S test/inkle_core -B build/inkle-test && cmake --build build/inkle-test && ctest --test-dir build/inkle-test
+cmake -S test/articles_core -B build/articles-test && cmake --build build/articles-test && ctest --test-dir build/articles-test
 ```
 
 Word lists are generated by `tools/inkle/gen_words.py` from
